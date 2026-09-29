@@ -1,36 +1,646 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: IntelliRoute graph logistics API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: dashboard
+  - name: customers
+  - name: orders
+  - name: shipments
+  - name: analytics
+  - name: graph
+  - name: predictions
+  - name: dbms
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
+      summary: Check API and Neo4j availability
       responses:
         "200":
-          description: Healthy
+          description: Health status
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Start an academic role session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Retrieve operational metrics and chart series
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /customers:
+    get:
+      operationId: getCustomers
+      tags: [customers]
+      summary: List and search customers
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+  /customers/{customerId}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Retrieve a customer and connected delivery history
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: Customer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerDetail"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer node
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deactivateCustomer
+      tags: [customers]
+      summary: Deactivate a customer
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "204":
+          description: Deactivated
+  /orders:
+    get:
+      operationId: getOrders
+      tags: [orders]
+      summary: List orders
+      parameters:
+        - $ref: "#/components/parameters/Search"
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create an order linked to a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /shipments:
+    get:
+      operationId: getShipments
+      tags: [shipments]
+      summary: List shipments
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shipments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shipment"
+    post:
+      operationId: createShipment
+      tags: [shipments]
+      summary: Create a shipment and its graph relationships
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShipmentInput"
+      responses:
+        "201":
+          description: Created shipment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shipment"
+  /shipments/{shipmentId}:
+    get:
+      operationId: getShipment
+      tags: [shipments]
+      summary: Retrieve shipment detail
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "200":
+          description: Shipment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentDetail"
+  /shipments/{shipmentId}/status:
+    patch:
+      operationId: updateShipmentStatus
+      tags: [shipments]
+      summary: Update shipment status
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShipmentStatusInput"
+      responses:
+        "200":
+          description: Updated shipment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shipment"
+  /shipments/{shipmentId}/attempt:
+    post:
+      operationId: recordDeliveryAttempt
+      tags: [shipments]
+      summary: Record a delivery attempt in a transaction
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttemptInput"
+      responses:
+        "201":
+          description: Delivery attempt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryAttempt"
+  /shipments/{shipmentId}/graph:
+    get:
+      operationId: getShipmentGraph
+      tags: [graph]
+      summary: Retrieve multi-hop shipment graph data
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "200":
+          description: Nodes and relationships
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GraphResponse"
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Retrieve relationship-based failure analytics
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+  /predictions/{shipmentId}:
+    post:
+      operationId: createPrediction
+      tags: [predictions]
+      summary: Predict failure risk and store it in Neo4j
+      parameters:
+        - $ref: "#/components/parameters/ShipmentId"
+      responses:
+        "201":
+          description: Prediction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prediction"
+  /predictions/high-risk:
+    get:
+      operationId: getHighRiskShipments
+      tags: [predictions]
+      summary: Retrieve high-risk shipments
+      responses:
+        "200":
+          description: High-risk shipments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HighRiskShipment"
+  /dbms/activity:
+    get:
+      operationId: getDbmsActivity
+      tags: [dbms]
+      summary: Retrieve Cypher operation activity
+      responses:
+        "200":
+          description: Activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DbmsActivity"
+  /dbms/operation:
+    post:
+      operationId: executeDbmsOperation
+      tags: [dbms]
+      summary: Execute a safe DBMS demonstration operation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DbmsOperationInput"
+      responses:
+        "200":
+          description: Operation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DbmsOperationResult"
 components:
+  parameters:
+    Search:
+      name: search
+      in: query
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      schema:
+        type: string
+    ShipmentId:
+      name: shipmentId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
+      required: [status, neo4j]
       properties:
-        status:
+        status: { type: string }
+        neo4j: { type: string }
+        message: { type: ["string", "null"] }
+    LoginInput:
+      type: object
+      required: [role]
+      properties:
+        role:
           type: string
-      required:
-        - status
-
+          enum: [Admin, Operations Manager, Delivery Agent]
+    Session:
+      type: object
+      required: [role, userName]
+      properties:
+        role: { type: string }
+        userName: { type: string }
+    Customer:
+      type: object
+      required: [customerId, name, email, phone, status, orderCount, shipmentCount]
+      properties:
+        customerId: { type: string }
+        name: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        status: { type: string }
+        createdAt: { type: ["string", "null"] }
+        orderCount: { type: integer }
+        shipmentCount: { type: integer }
+    CustomerInput:
+      type: object
+      required: [name, email, phone]
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        phone: { type: string, minLength: 5 }
+    CustomerUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        status: { type: string }
+    CustomerDetail:
+      allOf:
+        - $ref: "#/components/schemas/Customer"
+        - type: object
+          required: [addresses, orders, shipments]
+          properties:
+            addresses:
+              type: array
+              items: { type: object, additionalProperties: true }
+            orders:
+              type: array
+              items: { $ref: "#/components/schemas/Order" }
+            shipments:
+              type: array
+              items: { $ref: "#/components/schemas/Shipment" }
+    Order:
+      type: object
+      required: [orderId, customerId, amount, paymentType, priority, status, orderDate]
+      properties:
+        orderId: { type: string }
+        customerId: { type: string }
+        amount: { type: number }
+        paymentType: { type: string }
+        priority: { type: string }
+        status: { type: string }
+        orderDate: { type: string }
+        itemCount: { type: integer }
+        shipmentId: { type: ["string", "null"] }
+    OrderInput:
+      type: object
+      required: [customerId, amount, paymentType, priority]
+      properties:
+        customerId: { type: string }
+        amount: { type: number }
+        paymentType: { type: string }
+        priority: { type: string }
+        productName: { type: string }
+        quantity: { type: integer, minimum: 1 }
+    Shipment:
+      type: object
+      required: [shipmentId, orderId, customerId, customerName, zone, agent, hub, status, distanceKm, attemptCount, failureProbability]
+      properties:
+        shipmentId: { type: string }
+        orderId: { type: string }
+        customerId: { type: string }
+        customerName: { type: string }
+        zone: { type: string }
+        agent: { type: string }
+        hub: { type: string }
+        vehicle: { type: ["string", "null"] }
+        status: { type: string }
+        shipmentDate: { type: string }
+        expectedDeliveryDate: { type: string }
+        distanceKm: { type: number }
+        attemptCount: { type: integer }
+        failureProbability: { type: ["number", "null"] }
+        riskLevel: { type: ["string", "null"] }
+    ShipmentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Shipment"
+        - type: object
+          required: [address, attempts, failureReasons]
+          properties:
+            address: { type: object, additionalProperties: true }
+            attempts:
+              type: array
+              items: { $ref: "#/components/schemas/DeliveryAttempt" }
+            failureReasons:
+              type: array
+              items: { type: object, additionalProperties: true }
+    ShipmentInput:
+      type: object
+      required: [orderId, customerId, addressId, agentId, hubId, zoneId, shipmentDate, expectedDeliveryDate, distanceKm]
+      properties:
+        orderId: { type: string }
+        customerId: { type: string }
+        addressId: { type: string }
+        agentId: { type: string }
+        hubId: { type: string }
+        zoneId: { type: string }
+        vehicleId: { type: ["string", "null"] }
+        shipmentDate: { type: string }
+        expectedDeliveryDate: { type: string }
+        distanceKm: { type: number }
+        deliveryTimeWindow: { type: string }
+    ShipmentStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    AttemptInput:
+      type: object
+      required: [status, remarks]
+      properties:
+        status: { type: string }
+        failureReasonId: { type: ["string", "null"] }
+        remarks: { type: string }
+    DeliveryAttempt:
+      type: object
+      required: [attemptId, attemptNumber, status, attemptDate, remarks]
+      properties:
+        attemptId: { type: string }
+        attemptNumber: { type: integer }
+        status: { type: string }
+        attemptDate: { type: string }
+        remarks: { type: string }
+        failureReason: { type: ["string", "null"] }
+    GraphResponse:
+      type: object
+      required: [nodes, relationships]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphNode"
+        relationships:
+          type: array
+          items:
+            $ref: "#/components/schemas/GraphRelationship"
+    GraphNode:
+      type: object
+      required: [id, label, type, properties]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        type: { type: string }
+        properties: { type: object, additionalProperties: true }
+    GraphRelationship:
+      type: object
+      required: [source, target, type]
+      properties:
+        source: { type: string }
+        target: { type: string }
+        type: { type: string }
+    DashboardSummary:
+      type: object
+      required: [metrics, statusDistribution, failureReasons, zonePerformance, agentPerformance, highRiskShipments, recentActivity]
+      properties:
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+        statusDistribution:
+          type: array
+          items: { type: object, additionalProperties: true }
+        failureReasons:
+          type: array
+          items: { type: object, additionalProperties: true }
+        zonePerformance:
+          type: array
+          items: { type: object, additionalProperties: true }
+        agentPerformance:
+          type: array
+          items: { type: object, additionalProperties: true }
+        highRiskShipments:
+          type: array
+          items: { $ref: "#/components/schemas/HighRiskShipment" }
+        recentActivity:
+          type: array
+          items: { $ref: "#/components/schemas/DbmsActivity" }
+    AnalyticsOverview:
+      type: object
+      required: [failureByReason, failureByZone, failureByAgent, failureByPayment, distanceRanges, attemptsPerShipment, returnRate, successRate]
+      properties:
+        failureByReason: { type: array, items: { type: object, additionalProperties: true } }
+        failureByZone: { type: array, items: { type: object, additionalProperties: true } }
+        failureByAgent: { type: array, items: { type: object, additionalProperties: true } }
+        failureByPayment: { type: array, items: { type: object, additionalProperties: true } }
+        distanceRanges: { type: array, items: { type: object, additionalProperties: true } }
+        attemptsPerShipment: { type: array, items: { type: object, additionalProperties: true } }
+        returnRate: { type: number }
+        successRate: { type: number }
+    Prediction:
+      type: object
+      required: [predictionId, shipmentId, failureProbability, riskLevel, predictedAt, modelVersion, features]
+      properties:
+        predictionId: { type: string }
+        shipmentId: { type: string }
+        failureProbability: { type: number }
+        riskLevel: { type: string }
+        predictedAt: { type: string }
+        modelVersion: { type: string }
+        features: { type: object, additionalProperties: true }
+    HighRiskShipment:
+      type: object
+      required: [shipmentId, customerName, zone, failureProbability, riskLevel, status, attemptCount, attention]
+      properties:
+        shipmentId: { type: string }
+        customerName: { type: string }
+        zone: { type: string }
+        failureProbability: { type: number }
+        riskLevel: { type: string }
+        status: { type: string }
+        attemptCount: { type: integer }
+        attention: { type: string }
+    DbmsActivity:
+      type: object
+      required: [id, timestamp, user, operation, entity, action, success]
+      properties:
+        id: { type: string }
+        timestamp: { type: string }
+        user: { type: string }
+        operation: { type: string }
+        entity: { type: string }
+        action: { type: string }
+        success: { type: boolean }
+        query: { type: ["string", "null"] }
+    DbmsOperationInput:
+      type: object
+      required: [operation]
+      properties:
+        operation:
+          type: string
+          enum: [filter, sort, aggregate, group-analysis, 1-hop, 2-hop, multi-hop, constraints, indexes, transaction]
+        shipmentId: { type: ["string", "null"] }
+    DbmsOperationResult:
+      type: object
+      required: [operation, query, parameters, success, result, affected]
+      properties:
+        operation: { type: string }
+        query: { type: string }
+        parameters: { type: object, additionalProperties: true }
+        success: { type: boolean }
+        result: { type: array, items: { type: object, additionalProperties: true } }
+        affected: { type: integer }

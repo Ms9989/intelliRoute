@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "IntelliRoute"
+description = "A graph-based last-mile delivery operations platform that connects Neo4j data, risk prediction, logistics analytics, and DBMS demonstrations in one academic case-study application."
+version = "1.0.0"
+id = "artifacts/intelliroute"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24277
+
+[services.development]
+run = "pnpm --filter @workspace/intelliroute run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/intelliroute", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/intelliroute/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24277"
+BASE_PATH = "/"

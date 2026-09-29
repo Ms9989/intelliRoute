@@ -1,0 +1,1567 @@
+# MASTER PROMPT — BUILD INTELLIROUTE FROM SCRATCH
+
+You are a senior full-stack developer, Neo4j graph database engineer, UI/UX designer, and machine-learning engineer.
+
+Build a complete, working academic DBMS case-study application called:
+
+# IntelliRoute
+
+### Intelligent Last-Mile Delivery Failure Prediction and Logistics Analytics System
+
+The project must be implemented as a **real working web application**, not a static prototype.
+
+The most important requirement is that **Neo4j must be the core database**, and all important application operations must actually interact with Neo4j.
+
+The application must clearly demonstrate database concepts through the user interface while solving a realistic last-mile delivery problem.
+
+---
+
+# 1. PROBLEM STATEMENT
+
+Last-mile delivery failures caused by incorrect addresses, customer unavailability, repeated delivery attempts, and logistical issues increase operational costs and customer dissatisfaction in e-commerce.
+
+IntelliRoute is a graph-based logistics management and analytics system using Neo4j to model and analyze the relationships among customers, addresses, orders, shipments, delivery agents, hubs, delivery attempts, delivery zones, and failure reasons.
+
+The system should allow logistics data to be created, updated, retrieved, searched, and analyzed through a web application.
+
+Historical delivery data should be analyzed using machine learning to predict the probability of delivery failure for individual shipments.
+
+The application should provide operational dashboards, graph-based relationship exploration, failure-pattern analysis, delivery performance metrics, and high-risk shipment identification to support proactive logistics decision-making and reduce failed deliveries and returns.
+
+---
+
+# 2. PRIMARY OBJECTIVE
+
+Build a complete application where this flow works:
+
+User Input
+↓
+Frontend
+↓
+Backend API
+↓
+Cypher Query
+↓
+Neo4j
+↓
+Nodes + Relationships + Properties
+↓
+Retrieval / Analytics
+↓
+ML Prediction
+↓
+Prediction stored in Neo4j
+↓
+Dashboard / Graph Visualization
+
+Do NOT use hardcoded values for dashboard statistics.
+
+All displayed operational data must ultimately come from Neo4j.
+
+---
+
+# 3. TECHNOLOGY STACK
+
+Use the following stack unless there is a compelling technical reason to change it:
+
+## Frontend
+
+* React
+* Vite
+* JavaScript or TypeScript
+* Tailwind CSS
+* Recharts or another suitable charting library
+* React Router
+* Axios
+
+## Backend
+
+* Python
+* FastAPI
+* Pydantic
+* Neo4j Python Driver
+
+## Database
+
+* Neo4j
+* Cypher
+
+The application must work with:
+
+* Neo4j Desktop/local Neo4j
+* Neo4j Aura if credentials are supplied
+
+## Machine Learning
+
+* Python
+* pandas
+* numpy
+* scikit-learn
+* joblib
+
+Use a simple interpretable classification model initially, such as:
+
+* Logistic Regression
+  or
+* Random Forest
+
+The model should predict delivery failure risk.
+
+---
+
+# 4. IMPORTANT ARCHITECTURE RULE
+
+Do NOT build the project as:
+
+Frontend → fake JSON → dashboard.
+
+Build it as:
+
+Frontend
+→ FastAPI
+→ Neo4j
+→ real graph data.
+
+Every CRUD operation must communicate with the backend.
+
+The backend must communicate with Neo4j.
+
+The frontend must never directly connect to Neo4j credentials.
+
+---
+
+# 5. NEO4J DATA MODEL
+
+Use a property graph model.
+
+Create the following node types.
+
+## Customer
+
+Properties:
+
+* customer_id
+* name
+* phone
+* email
+* created_at
+
+## Address
+
+Properties:
+
+* address_id
+* street
+* city
+* state
+* pincode
+* latitude
+* longitude
+* address_type
+
+## Order
+
+Properties:
+
+* order_id
+* order_date
+* amount
+* payment_type
+* priority
+
+## OrderItem
+
+Properties:
+
+* item_id
+* product_name
+* quantity
+* price
+
+## Shipment
+
+Properties:
+
+* shipment_id
+* shipment_date
+* expected_delivery_date
+* actual_delivery_date
+* status
+* distance_km
+* delivery_time_window
+* return_status
+
+## DeliveryAgent
+
+Properties:
+
+* agent_id
+* name
+* phone
+* vehicle_type
+* availability
+
+## Hub
+
+Properties:
+
+* hub_id
+* name
+* city
+* capacity
+
+## Zone
+
+Properties:
+
+* zone_id
+* name
+* city
+* risk_level
+
+## Vehicle
+
+Properties:
+
+* vehicle_id
+* vehicle_number
+* vehicle_type
+* capacity
+* status
+
+## DeliveryAttempt
+
+Properties:
+
+* attempt_id
+* attempt_number
+* attempt_date
+* status
+* remarks
+
+## FailureReason
+
+Properties:
+
+* reason_id
+* reason_name
+* category
+* description
+
+## CustomerFeedback
+
+Properties:
+
+* feedback_id
+* rating
+* comment
+* feedback_date
+
+## Prediction
+
+Properties:
+
+* prediction_id
+* failure_probability
+* risk_level
+* predicted_at
+* model_version
+
+---
+
+# 6. RELATIONSHIPS
+
+Create meaningful relationships.
+
+At minimum:
+
+(Customer)-[:HAS_ADDRESS]->(Address)
+
+(Customer)-[:PLACED]->(Order)
+
+(Order)-[:CONTAINS]->(OrderItem)
+
+(Order)-[:HAS_SHIPMENT]->(Shipment)
+
+(Shipment)-[:DELIVER_TO]->(Address)
+
+(Shipment)-[:ASSIGNED_TO]->(DeliveryAgent)
+
+(Shipment)-[:ROUTED_THROUGH]->(Hub)
+
+(Shipment)-[:BELONGS_TO_ZONE]->(Zone)
+
+(Shipment)-[:USES_VEHICLE]->(Vehicle)
+
+(Shipment)-[:HAS_ATTEMPT]->(DeliveryAttempt)
+
+(DeliveryAttempt)-[:FAILED_DUE_TO]->(FailureReason)
+
+(Shipment)-[:HAS_FEEDBACK]->(CustomerFeedback)
+
+(Shipment)-[:HAS_PREDICTION]->(Prediction)
+
+(Hub)-[:SERVES]->(Zone)
+
+(DeliveryAgent)-[:WORKS_AT]->(Hub)
+
+---
+
+# 7. DATABASE CONSTRAINTS AND INDEXES
+
+Create appropriate Neo4j constraints.
+
+For example:
+
+* customer_id unique
+* address_id unique
+* order_id unique
+* shipment_id unique
+* agent_id unique
+* hub_id unique
+* zone_id unique
+* vehicle_id unique
+* attempt_id unique
+* failure reason ID unique
+* prediction ID unique
+
+Create indexes for frequently queried properties such as:
+
+* Shipment.status
+* Shipment.shipment_date
+* Customer.email
+* Address.pincode
+* Zone.name
+* DeliveryAgent.agent_id
+
+Put all database initialization queries in a dedicated Cypher file.
+
+---
+
+# 8. DATABASE SEED DATA
+
+Create realistic seed data.
+
+Do not use only 5 records.
+
+Generate enough data to make analytics meaningful.
+
+Suggested minimum:
+
+* 100 customers
+* 150 addresses
+* 250 orders
+* 250 shipments
+* 50 delivery agents
+* 10 hubs
+* 15 zones
+* 30 vehicles
+* 400 delivery attempts
+* 8–10 failure reasons
+* 100 feedback records
+
+Use realistic but fictional data.
+
+Do NOT use real people's personal information.
+
+The generated dataset should contain both successful and failed deliveries.
+
+Include patterns such as:
+
+* customer unavailable
+* incorrect address
+* customer rejected delivery
+* vehicle issue
+* weather delay
+* damaged package
+* hub delay
+* delivery agent unavailable
+
+Make the data statistically useful for the ML model.
+
+---
+
+# 9. APPLICATION PAGES
+
+Create the following pages.
+
+## 9.1 Login
+
+Provide a simple role-based login interface.
+
+Roles:
+
+* Admin
+* Operations Manager
+* Delivery Agent
+
+For academic demonstration, authentication can be simple but functional.
+
+Do not expose Neo4j credentials.
+
+---
+
+# 10. DASHBOARD
+
+Create a professional logistics dashboard.
+
+Display real-time values retrieved from Neo4j:
+
+* Total customers
+* Total orders
+* Total shipments
+* Delivered shipments
+* Failed shipments
+* Returned shipments
+* Failure rate
+* Average delivery attempts
+* High-risk shipments
+
+Charts:
+
+1. Delivery status distribution
+2. Failure reason distribution
+3. Failure rate by zone
+4. Agent performance
+5. Shipments over time
+6. Failed attempts over time
+
+Also show:
+
+### High-Risk Shipments
+
+Columns:
+
+* Shipment ID
+* Customer
+* Zone
+* Failure Probability
+* Risk
+* Status
+
+Do not hardcode dashboard numbers.
+
+---
+
+# 11. CUSTOMER MANAGEMENT
+
+Create:
+
+* Add Customer
+* View Customers
+* Search Customer
+* Edit Customer
+* Delete/Deactivate Customer
+* View Customer Details
+
+Customer details should show graph relationships:
+
+Customer
+→ Addresses
+→ Orders
+→ Shipments
+→ Delivery Attempts
+→ Failure Reasons
+
+Provide a "View Graph" button.
+
+---
+
+# 12. ORDER MANAGEMENT
+
+Create:
+
+* Create Order
+* View Orders
+* Search Orders
+* Update Order
+* View Order Details
+
+Order details should display:
+
+Customer
+Order Items
+Shipment
+Payment Type
+Amount
+Status
+
+---
+
+# 13. SHIPMENT MANAGEMENT
+
+Create a shipment creation form.
+
+Fields:
+
+* Customer
+* Order
+* Address
+* Agent
+* Hub
+* Zone
+* Vehicle
+* Shipment date
+* Expected delivery date
+* Distance
+* Priority
+* Payment type
+
+When the shipment is created, create the required Neo4j nodes and relationships.
+
+Display the resulting graph relationship.
+
+---
+
+# 14. DELIVERY MANAGEMENT
+
+Create a page where a delivery agent can:
+
+* View assigned shipments
+* View shipment details
+* Update shipment status
+* Record delivery attempt
+* Mark delivery successful
+* Mark delivery failed
+* Select failure reason
+* Add remarks
+
+When a failure is recorded:
+
+Create:
+
+(Shipment)-[:HAS_ATTEMPT]->(DeliveryAttempt)
+
+and:
+
+(DeliveryAttempt)-[:FAILED_DUE_TO]->(FailureReason)
+
+The shipment status should also update.
+
+Use a database transaction where appropriate.
+
+---
+
+# 15. SEARCH AND RETRIEVAL
+
+Create a global search page.
+
+Allow searches by:
+
+* Customer ID
+* Order ID
+* Shipment ID
+* Agent ID
+* Hub
+* Zone
+* Failure reason
+
+Results must come from Neo4j.
+
+For shipment search, show a connected result:
+
+Customer
+→ Order
+→ Shipment
+→ Address
+→ Agent
+→ Hub
+→ Attempts
+→ Failure Reasons
+
+---
+
+# 16. GRAPH EXPLORER
+
+This is a very important feature because the project uses Neo4j.
+
+Create a graph visualization page.
+
+The user should be able to enter:
+
+Shipment ID / Customer ID / Order ID
+
+Then retrieve related nodes and relationships from Neo4j.
+
+Visualize something like:
+
+Customer
+|
+PLACED
+|
+Order
+|
+HAS_SHIPMENT
+|
+Shipment
+/     |       
+Agent  Address  Attempts
+|
+Failure Reason
+
+Use a suitable graph visualization library such as:
+
+* React Flow
+* Cytoscape.js
+* D3.js
+* Neo4j visualization-compatible approach
+
+Make the graph interactive.
+
+Users should be able to click nodes and view properties.
+
+---
+
+# 17. DATABASE OPERATIONS DEMONSTRATION
+
+Create a dedicated page:
+
+# DBMS LAB / DATABASE OPERATIONS
+
+This page exists specifically for the academic DBMS evaluation.
+
+Include sections:
+
+## CRUD
+
+Buttons:
+
+* CREATE
+* READ
+* UPDATE
+* DELETE
+
+## Query Operations
+
+Buttons:
+
+* Filter
+* Sort
+* Aggregate
+* Group Analysis
+* Multi-hop Retrieval
+
+## Graph Operations
+
+Buttons:
+
+* 1-hop traversal
+* 2-hop traversal
+* Multi-hop traversal
+* Relationship analysis
+
+## Database Administration
+
+Buttons:
+
+* Constraints
+* Indexes
+* Transaction demonstration
+* Database statistics
+
+When an operation is executed, show:
+
+1. Operation name
+2. Cypher query
+3. Parameters
+4. Execution result
+5. Number of nodes/relationships affected
+6. Returned data
+
+Example:
+
+Operation:
+CREATE CUSTOMER
+
+Cypher:
+CREATE (c:Customer {...})
+
+Result:
+SUCCESS
+
+Nodes created:
+1
+
+This page is for demonstration and should make the DBMS concepts obvious to the professor.
+
+---
+
+# 18. CYPHER QUERY LIBRARY
+
+Create a backend/service file containing reusable Cypher queries.
+
+Include queries for:
+
+1. Create customer
+2. Get customers
+3. Update customer
+4. Delete/deactivate customer
+5. Create order
+6. Create shipment
+7. Update shipment status
+8. Record delivery attempt
+9. Find failed shipments
+10. Find repeated delivery failures
+11. Most common failure reasons
+12. Failure rate by zone
+13. Agent performance
+14. Customer delivery history
+15. High-value failed orders
+16. Shipments with multiple attempts
+17. High-risk shipments
+18. Average delivery attempts
+19. Delivery success rate
+20. Hub performance
+
+Use parameterized Cypher queries.
+
+Never construct queries using unsafe string concatenation.
+
+---
+
+# 19. DBMS CONCEPT DEMONSTRATIONS
+
+The project must demonstrate the following concepts where applicable to Neo4j:
+
+### Data modeling
+
+* Nodes
+* Relationships
+* Properties
+
+### CRUD
+
+* CREATE
+* MATCH/READ
+* SET/UPDATE
+* DELETE
+
+### Constraints
+
+### Indexing
+
+### Transactions
+
+### Query filtering
+
+### Sorting
+
+### Aggregation
+
+### Grouping
+
+### Pattern matching
+
+### Multi-hop traversal
+
+### Optional matches
+
+### Relationship-based analytics
+
+### Authentication / authorization
+
+### Backup/export documentation
+
+Do NOT artificially implement relational-only concepts such as foreign keys or normalization if they are not applicable to Neo4j.
+
+Instead, explain the equivalent graph-database concepts in the documentation.
+
+---
+
+# 20. TRANSACTION DEMONSTRATION
+
+Implement at least one meaningful transaction.
+
+Example:
+
+Assign a shipment to an agent and vehicle.
+
+The transaction should:
+
+1. Assign agent
+2. Assign vehicle
+3. Update shipment
+4. Update agent availability
+5. Update vehicle status
+
+If an operation fails, rollback the transaction.
+
+Provide a DBMS demonstration button showing:
+
+Transaction Started
+→ Operations
+→ Commit/Rollback
+→ Result
+
+---
+
+# 21. ML MODULE
+
+Create an ML pipeline.
+
+Features may include:
+
+* Number of previous delivery attempts
+* Previous failed attempts
+* Customer failure history
+* Distance
+* Payment type
+* Order amount
+* Zone historical failure rate
+* Agent historical failure rate
+* Delivery time window
+* Address issue history
+* Number of previous returns
+
+Target:
+
+delivery failure = 1
+delivery success = 0
+
+Train a classification model.
+
+Use:
+
+* train/test split
+* preprocessing
+* model training
+* evaluation
+
+Metrics:
+
+* Accuracy
+* Precision
+* Recall
+* F1-score
+* ROC-AUC
+* Confusion matrix
+
+Do not claim that the model is production-ready.
+
+This is an academic prototype.
+
+---
+
+# 22. ML PREDICTION PAGE
+
+Create:
+
+# Predict Delivery Failure Risk
+
+Allow the user to:
+
+* Select an existing shipment
+* Retrieve its connected historical features from Neo4j
+* Send features to ML model
+* Generate prediction
+
+Display:
+
+Failure Probability:
+82%
+
+Risk Level:
+HIGH
+
+Then show contributing information:
+
+* Previous failed attempts: 2
+* Customer unavailable history: 1
+* Zone failure rate: 18%
+* Distance: 16.4 km
+* Payment type: COD
+
+After prediction, store:
+
+(Prediction)-[:FOR_SHIPMENT]->(Shipment)
+
+or:
+
+(Shipment)-[:HAS_PREDICTION]->(Prediction)
+
+---
+
+# 23. HIGH-RISK SHIPMENT PAGE
+
+Display all high-risk predictions.
+
+Columns:
+
+* Shipment ID
+* Customer
+* Zone
+* Failure probability
+* Risk
+* Shipment status
+* Previous attempts
+* Recommended operational attention
+
+Use:
+
+HIGH:
+
+> = 0.70
+
+MEDIUM:
+0.40–0.69
+
+LOW:
+< 0.40
+
+Make these thresholds configurable.
+
+Do not present the ML output as guaranteed failure.
+
+Call it a predicted risk/probability.
+
+---
+
+# 24. ANALYTICS PAGE
+
+Create separate analytical cards/charts for:
+
+### Failure by Reason
+
+### Failure by Zone
+
+### Failure by Agent
+
+### Failure by Payment Type
+
+### Failure by Distance Range
+
+### Failure by Order Value Range
+
+### Attempts per Shipment
+
+### Return Rate
+
+### Delivery Success Rate
+
+Every chart must query Neo4j through the backend.
+
+---
+
+# 25. DATABASE ACTIVITY LOG
+
+Create an activity/audit section.
+
+Display:
+
+* Timestamp
+* User
+* Operation
+* Entity
+* Action
+* Success/Failure
+
+Examples:
+
+CREATE CUSTOMER
+UPDATE SHIPMENT
+RECORD DELIVERY ATTEMPT
+GENERATE PREDICTION
+
+If appropriate, store audit records as Neo4j nodes.
+
+Example:
+
+(User)-[:PERFORMED]->(AuditLog)
+
+---
+
+# 26. FILE STRUCTURE
+
+Use a clean structure similar to:
+
+intelliroute/
+│
+├── README.md
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+│
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   │
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx
+│       │
+│       ├── assets/
+│       │
+│       ├── components/
+│       │   ├── Navbar.jsx
+│       │   ├── Sidebar.jsx
+│       │   ├── StatCard.jsx
+│       │   ├── DataTable.jsx
+│       │   ├── Modal.jsx
+│       │   ├── GraphViewer.jsx
+│       │   ├── RiskBadge.jsx
+│       │   ├── Loading.jsx
+│       │   └── ErrorMessage.jsx
+│       │
+│       ├── pages/
+│       │   ├── Login.jsx
+│       │   ├── Dashboard.jsx
+│       │   ├── Customers.jsx
+│       │   ├── CustomerDetails.jsx
+│       │   ├── Orders.jsx
+│       │   ├── Shipments.jsx
+│       │   ├── ShipmentDetails.jsx
+│       │   ├── DeliveryManagement.jsx
+│       │   ├── Analytics.jsx
+│       │   ├── Predictions.jsx
+│       │   ├── GraphExplorer.jsx
+│       │   └── DBMSLab.jsx
+│       │
+│       ├── services/
+│       │   ├── api.js
+│       │   ├── customerService.js
+│       │   ├── orderService.js
+│       │   ├── shipmentService.js
+│       │   ├── analyticsService.js
+│       │   └── predictionService.js
+│       │
+│       ├── hooks/
+│       │
+│       ├── utils/
+│       │
+│       └── styles/
+│           └── index.css
+│
+├── backend/
+│   ├── requirements.txt
+│   ├── main.py
+│   │
+│   ├── app/
+│   │   ├── **init**.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   │
+│   │   ├── routes/
+│   │   │   ├── auth.py
+│   │   │   ├── customers.py
+│   │   │   ├── orders.py
+│   │   │   ├── shipments.py
+│   │   │   ├── delivery.py
+│   │   │   ├── analytics.py
+│   │   │   ├── predictions.py
+│   │   │   ├── graph.py
+│   │   │   └── dbms.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── customer_service.py
+│   │   │   ├── order_service.py
+│   │   │   ├── shipment_service.py
+│   │   │   ├── delivery_service.py
+│   │   │   ├── analytics_service.py
+│   │   │   ├── prediction_service.py
+│   │   │   └── graph_service.py
+│   │   │
+│   │   ├── queries/
+│   │   │   ├── customers.cypher
+│   │   │   ├── orders.cypher
+│   │   │   ├── shipments.cypher
+│   │   │   ├── delivery.cypher
+│   │   │   ├── analytics.cypher
+│   │   │   └── graph.cypher
+│   │   │
+│   │   └── schemas/
+│   │       ├── customer.py
+│   │       ├── order.py
+│   │       ├── shipment.py
+│   │       └── prediction.py
+│
+├── database/
+│   ├── constraints.cypher
+│   ├── indexes.cypher
+│   ├── schema.cypher
+│   ├── seed.cypher
+│   ├── sample_queries.cypher
+│   └── transactions.cypher
+│
+├── ml/
+│   ├── data/
+│   │   └── README.md
+│   ├── notebooks/
+│   │   └── model_development.ipynb
+│   ├── src/
+│   │   ├── feature_extraction.py
+│   │   ├── preprocessing.py
+│   │   ├── train.py
+│   │   ├── evaluate.py
+│   │   └── predict.py
+│   ├── models/
+│   │   └── .gitkeep
+│   └── requirements.txt
+│
+├── docs/
+│   ├── problem_statement.md
+│   ├── architecture.md
+│   ├── data_model.md
+│   ├── dbms_concepts.md
+│   ├── api_documentation.md
+│   ├── ml_documentation.md
+│   └── demo_flow.md
+│
+└── scripts/
+├── setup_database.py
+├── generate_data.py
+└── start_project.bat
+
+---
+
+# 27. API DESIGN
+
+Create REST endpoints.
+
+Examples:
+
+GET /api/customers
+
+POST /api/customers
+
+GET /api/customers/{id}
+
+PUT /api/customers/{id}
+
+DELETE /api/customers/{id}
+
+GET /api/orders
+
+POST /api/orders
+
+GET /api/shipments
+
+POST /api/shipments
+
+PUT /api/shipments/{id}/status
+
+POST /api/shipments/{id}/attempt
+
+GET /api/shipments/{id}/graph
+
+GET /api/analytics/failures
+
+GET /api/analytics/zones
+
+GET /api/analytics/agents
+
+GET /api/analytics/dashboard
+
+POST /api/predictions/{shipment_id}
+
+GET /api/predictions/high-risk
+
+GET /api/dbms/activity
+
+Use proper HTTP status codes.
+
+---
+
+# 28. ERROR HANDLING
+
+Implement proper error handling.
+
+Examples:
+
+* Duplicate customer ID
+* Invalid shipment ID
+* Invalid relationship
+* Missing required field
+* Neo4j unavailable
+* Prediction model unavailable
+* Invalid input
+* Failed transaction
+
+Display user-friendly messages.
+
+Never expose stack traces or database credentials to the frontend.
+
+---
+
+# 29. UI DESIGN
+
+The UI should look like a modern logistics SaaS dashboard.
+
+Use:
+
+* Clean sidebar
+* Responsive layout
+* Cards
+* Tables
+* Charts
+* Status badges
+* Modal forms
+* Search
+* Filters
+* Pagination
+* Loading states
+* Empty states
+* Error states
+
+Suggested visual language:
+
+* Professional
+* Modern
+* Minimal
+* Logistics/technology theme
+* Avoid excessive animations
+
+Use consistent colors for:
+
+LOW
+MEDIUM
+HIGH
+
+But ensure the interface remains accessible.
+
+---
+
+# 30. SECURITY
+
+Use environment variables:
+
+NEO4J_URI
+NEO4J_USERNAME
+NEO4J_PASSWORD
+NEO4J_DATABASE
+
+Never hardcode credentials.
+
+Provide:
+
+.env.example
+
+Do not commit .env.
+
+---
+
+# 31. README
+
+Create a detailed README containing:
+
+1. Project overview
+2. Problem statement
+3. Objectives
+4. Features
+5. Architecture
+6. Neo4j data model
+7. Node types
+8. Relationship types
+9. Technology stack
+10. Installation
+11. Environment variables
+12. Neo4j setup
+13. Database initialization
+14. Seed data generation
+15. Backend setup
+16. Frontend setup
+17. ML setup
+18. Running the project
+19. DBMS concepts demonstrated
+20. API documentation
+21. Demo flow
+22. Limitations
+23. Future enhancements
+
+---
+
+# 32. DOCUMENTATION FOR DBMS FACULTY
+
+Create a document explaining exactly how IntelliRoute demonstrates database concepts.
+
+For each concept provide:
+
+Concept
+→ Why it is needed
+→ Where it is implemented
+→ Example Cypher
+→ Application screen where it can be demonstrated
+
+Example:
+
+CRUD
+→ Customer Management
+→ CREATE/MATCH/SET/DELETE
+→ Customer page
+
+Graph traversal
+→ Shipment Details
+→ Multi-hop MATCH
+→ Graph Explorer
+
+Transactions
+→ Shipment assignment
+→ Transaction API
+→ DBMS Lab
+
+Constraints
+→ Database initialization
+→ Neo4j constraints
+→ DBMS Lab
+
+Indexes
+→ Search
+→ Neo4j indexes
+→ DBMS Lab
+
+---
+
+# 33. IMPORTANT IMPLEMENTATION RULES
+
+1. Do not generate a fake/static application.
+
+2. Do not hardcode dashboard statistics.
+
+3. Do not use mock data after the database has been initialized.
+
+4. Every important UI action must result in an actual Neo4j operation.
+
+5. Use parameterized Cypher.
+
+6. Keep database credentials on the backend only.
+
+7. Separate frontend, backend, database, and ML code.
+
+8. Keep Cypher queries organized in dedicated files.
+
+9. Use reusable backend services.
+
+10. Use reusable React components.
+
+11. Provide meaningful comments around complex logic.
+
+12. Do not over-engineer authentication for this academic prototype.
+
+13. Make the application easy to run on Windows.
+
+14. Make Neo4j setup straightforward.
+
+15. Make errors understandable to a student developer.
+
+---
+
+# 34. DEVELOPMENT ORDER
+
+Do NOT try to generate the entire project randomly in one step.
+
+Build in this order:
+
+### PHASE 1
+
+Project structure
+
+### PHASE 2
+
+Neo4j schema
+
+### PHASE 3
+
+Constraints and indexes
+
+### PHASE 4
+
+Seed data
+
+### PHASE 5
+
+Backend Neo4j connection
+
+### PHASE 6
+
+Customer CRUD
+
+### PHASE 7
+
+Order CRUD
+
+### PHASE 8
+
+Shipment management
+
+### PHASE 9
+
+Delivery attempts
+
+### PHASE 10
+
+Analytics
+
+### PHASE 11
+
+Graph visualization
+
+### PHASE 12
+
+DBMS demonstration page
+
+### PHASE 13
+
+ML pipeline
+
+### PHASE 14
+
+Prediction integration
+
+### PHASE 15
+
+Dashboard
+
+### PHASE 16
+
+Testing
+
+### PHASE 17
+
+Documentation
+
+---
+
+# 35. TESTING
+
+Create tests for:
+
+* Customer creation
+* Customer retrieval
+* Customer update
+* Shipment creation
+* Delivery attempt creation
+* Failure reason assignment
+* Analytics queries
+* Graph retrieval
+* ML prediction
+* Transaction rollback
+* Invalid input
+
+Also provide a manual testing checklist.
+
+---
+
+# 36. FINAL DEMONSTRATION SCENARIO
+
+The final application must support this complete demo:
+
+1. Login as Operations Manager.
+
+2. Open Dashboard.
+
+3. Show real statistics from Neo4j.
+
+4. Add a customer.
+
+5. Add an order.
+
+6. Create a shipment.
+
+7. Assign agent, vehicle, hub and address.
+
+8. Open Graph Explorer.
+
+9. Show:
+
+Customer
+→ Order
+→ Shipment
+→ Agent
+→ Address
+→ Hub
+
+10. Record a failed delivery attempt.
+
+11. Select "Customer Unavailable."
+
+12. Show the new relationship in the graph.
+
+13. Search the shipment.
+
+14. Display its complete delivery history.
+
+15. Open Analytics.
+
+16. Show failure analysis by reason and zone.
+
+17. Select a shipment.
+
+18. Run ML prediction.
+
+19. Display probability and risk level.
+
+20. Save prediction to Neo4j.
+
+21. Return to dashboard.
+
+22. Show that the high-risk shipment now appears in the dashboard.
+
+23. Open DBMS Lab.
+
+24. Demonstrate the actual Cypher query and operation result.
+
+This complete workflow should work without manually editing the database during the demo.
+
+---
+
+# 37. CODE QUALITY REQUIREMENTS
+
+Before considering the project complete:
+
+* No broken imports
+* No unused critical files
+* No hardcoded credentials
+* No hardcoded dashboard statistics
+* No fake API responses
+* No broken routes
+* No missing dependencies
+* No unhandled Neo4j connection failures
+* No unsafe Cypher concatenation
+* No duplicate business logic
+* No frontend directly accessing Neo4j
+* Clear README
+* Clear setup instructions
+
+---
+
+# 38. OUTPUT REQUIREMENT
+
+When implementing the project, do not merely describe what should be done.
+
+Actually create the project files and code.
+
+For every phase:
+
+1. State what is being implemented.
+2. Create/update the necessary files.
+3. Show the final file structure.
+4. Explain how to run it.
+5. Test the implementation.
+6. Fix errors before proceeding.
+
+Do not move to the next phase if the current phase does not work.
+
+At the end, provide:
+
+* Complete project tree
+* Setup instructions
+* Neo4j setup instructions
+* Backend run command
+* Frontend run command
+* ML training command
+* Seed-data command
+* Demo credentials
+* Demo workflow
+* DBMS concepts demonstrated
+* Known limitations
+* Future enhancements
+
+The final result must be a **fully connected, working academic project**, not a collection of disconnected code examples.
+
+# START NOW
+
+Begin with:
+
+PHASE 1 — Project architecture and complete folder structure.
+
+Then implement the project phase-by-phase, keeping Neo4j as the central database throughout.
