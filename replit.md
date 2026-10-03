@@ -10,6 +10,8 @@ IntelliRoute is a graph-based last-mile delivery operations platform that uses N
 - `pnpm run typecheck` — full TypeScript check across the workspace
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate typed API helpers after changing `lib/api-spec/openapi.yaml`
 
+The Vite development server proxies `/api` to `http://localhost:5000` by default. Set `API_SERVER_URL` when the API server runs at a different URL.
+
 Required Neo4j environment:
 
 - `NEO4J_URI`

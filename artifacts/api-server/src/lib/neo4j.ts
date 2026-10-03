@@ -45,6 +45,15 @@ function normalize(value: unknown): unknown {
   if (neo4j.isInt(value)) {
     return value.toNumber();
   }
+  if (
+    neo4j.isDate(value) ||
+    neo4j.isDateTime(value) ||
+    neo4j.isLocalDateTime(value) ||
+    neo4j.isTime(value) ||
+    neo4j.isLocalTime(value)
+  ) {
+    return value.toString();
+  }
   if (Array.isArray(value)) {
     return value.map(normalize);
   }

@@ -18,13 +18,15 @@ export const queries = {
     WITH customers, orders, count(s) AS shipments,
       count(CASE WHEN s.status = 'DELIVERED' THEN 1 END) AS delivered,
       count(CASE WHEN s.status IN ['FAILED', 'DELIVERY_FAILED'] THEN 1 END) AS failed,
-      count(CASE WHEN s.return_status = 'RETURNED' THEN 1 END) AS returned
+      count(CASE WHEN s.return_status = 'RETURNED' THEN 1 END) AS returned,
+      count(CASE WHEN s.status IN ['PENDING', 'ASSIGNED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] THEN 1 END) AS inTransit
     OPTIONAL MATCH (s2:Shipment)-[:HAS_ATTEMPT]->(a:DeliveryAttempt)
-    WITH customers, orders, shipments, delivered, failed, returned,
+    WITH customers, orders, shipments, delivered, failed, returned, inTransit,
       coalesce(avg(toFloat(a.attempt_number)), 0) AS averageAttempts
     OPTIONAL MATCH (p:Prediction)
-    RETURN customers, orders, shipments, delivered, failed, returned,
-      averageAttempts, count(CASE WHEN p.risk_level = 'HIGH' THEN 1 END) AS highRisk
+    RETURN customers, orders, shipments, delivered, failed, returned, inTransit,
+      averageAttempts, count(CASE WHEN p.risk_level = 'HIGH' THEN 1 END) AS highRisk,
+      CASE WHEN shipments = 0 THEN 0.0 ELSE toFloat(delivered) / shipments END AS successRate
   `,
   statusDistribution: `
     MATCH (s:Shipment)
@@ -77,7 +79,9 @@ export async function dashboardSummary() {
       delivered: Number(first.delivered ?? 0),
       failed,
       returned: Number(first.returned ?? 0),
+      inTransit: Number(first.inTransit ?? 0),
       failureRate: shipments ? failed / shipments : 0,
+      successRate: shipments ? Number(first.delivered ?? 0) / shipments : 0,
       averageAttempts: Number(first.averageAttempts ?? 0),
       highRisk: Number(first.highRisk ?? 0),
     },
@@ -389,7 +393,8 @@ type Neo4jRecordLike = { toObject: () => Record<string, unknown> };
 export async function graphForShipment(shipmentId: string) {
   const rows = await readQuery(
     `MATCH path = (s:Shipment {shipment_id: $shipmentId})-[*1..3]-(related)
-     WITH collect(path) AS paths
+      WITH path LIMIT 250
+      WITH collect(path) AS paths
      UNWIND paths AS path
      UNWIND nodes(path) AS node
      WITH collect(DISTINCT node) AS nodes, paths
@@ -397,13 +402,23 @@ export async function graphForShipment(shipmentId: string) {
      UNWIND relationships(path) AS rel
      RETURN
        [node IN nodes | {
-         id: coalesce(node.shipment_id, node.customer_id, node.order_id, node.address_id,
-           node.agent_id, node.hub_id, node.zone_id, node.attempt_id, node.reason_id, node.prediction_id),
+          id: coalesce(node.shipment_id, node.customer_id, node.order_id, node.address_id,
+            node.agent_id, node.hub_id, node.zone_id, node.vehicle_id, node.attempt_id,
+            node.reason_id, node.prediction_id, node.audit_id, elementId(node)),
          label: coalesce(node.name, node.shipment_id, node.customer_id, node.order_id, 'Node'),
          type: head(labels(node)), properties: node {.*}
        }] AS nodes,
        collect(DISTINCT {
-         source: startNode(rel).shipment_id, target: endNode(rel).shipment_id,
+          source: coalesce(startNode(rel).shipment_id, startNode(rel).customer_id,
+            startNode(rel).order_id, startNode(rel).address_id, startNode(rel).agent_id,
+            startNode(rel).hub_id, startNode(rel).zone_id, startNode(rel).vehicle_id,
+            startNode(rel).attempt_id, startNode(rel).reason_id, startNode(rel).prediction_id,
+            startNode(rel).audit_id, elementId(startNode(rel))),
+          target: coalesce(endNode(rel).shipment_id, endNode(rel).customer_id,
+            endNode(rel).order_id, endNode(rel).address_id, endNode(rel).agent_id,
+            endNode(rel).hub_id, endNode(rel).zone_id, endNode(rel).vehicle_id,
+            endNode(rel).attempt_id, endNode(rel).reason_id, endNode(rel).prediction_id,
+            endNode(rel).audit_id, elementId(endNode(rel))),
          type: type(rel)
        }) AS relationships`,
     { shipmentId },

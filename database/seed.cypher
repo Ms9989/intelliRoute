@@ -40,7 +40,7 @@ UNWIND range(1, 100) AS i
 MERGE (c:Customer {customer_id: 'CUS-' + toString(i)})
 SET c.name = 'Customer ' + toString(i), c.email = 'customer' + toString(i) + '@example.test',
     c.phone = '+91-91000-' + toString(10000 + i), c.status = 'ACTIVE',
-    c.created_at = date() - duration({days: 100 + i});
+     c.created_at = date() - duration({days: 100 + i})
 MERGE (address:Address {address_id: 'ADR-' + toString(i)})
 SET address.street = toString(10 + i) + ' Market Road', address.city = ['Mumbai', 'Pune', 'Delhi', 'Bengaluru'][i % 4],
     address.state = 'Maharashtra', address.pincode = toString(400000 + i),

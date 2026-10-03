@@ -204,10 +204,10 @@ function Dashboard() {
   return <div className="page-content">
     <PageHeader eyebrow="Operations / live" title="Control room" description="A graph-aware view of what is moving, what is drifting, and where the network needs a decision." action={<Link href="/shipments" className="button button-primary" data-testid="link-view-queue">Open shipment queue <ArrowUpRight size={14} /></Link>} />
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-      <MetricCard label="Total shipments" value={compact(metrics.totalShipments)} detail="Across the active network" />
+      <MetricCard label="Total shipments" value={compact(metrics.shipments)} detail="Across the active network" />
       <MetricCard label="In transit" value={compact(metrics.inTransit)} detail="Moving between hubs" tone="amber" />
-      <MetricCard label="At risk" value={compact(metrics.highRiskShipments)} detail="Requires operator attention" tone="red" />
-      <MetricCard label="Success rate" value={metrics.successRate !== undefined ? `${Number(metrics.successRate).toFixed(1)}%` : '—'} detail="Delivered without return" />
+      <MetricCard label="At risk" value={compact(metrics.highRisk)} detail="Requires operator attention" tone="red" />
+      <MetricCard label="Success rate" value={metrics.successRate !== undefined ? `${(Number(metrics.successRate) * 100).toFixed(1)}%` : '—'} detail="Delivered without return" />
     </div>
     <div className="grid lg:grid-cols-[1.35fr_.65fr] gap-4 mb-4">
       <div className="panel p-5"><div className="flex items-start justify-between mb-6"><div><div className="eyebrow">Network pulse</div><h2 className="font-extrabold mt-1">Status distribution</h2></div><span className="text-[10px] font-mono text-muted-foreground">UPDATED {formatTime(new Date().toISOString())}</span></div><div className="flex items-end gap-3 h-40">{(data.statusDistribution || []).slice(0, 8).map((item, index) => { const label = String(valueFrom(item, ['status', 'label', 'name']) || `S${index + 1}`); const value = Number(valueFrom(item, ['count', 'value', 'total'])) || 0; const max = Math.max(...(data.statusDistribution || []).map((x) => Number(valueFrom(x, ['count', 'value', 'total'])) || 1)); return <div key={`${label}-${index}`} className="flex-1 h-full flex flex-col justify-end gap-2 group"><div className="text-center text-[10px] font-mono opacity-0 group-hover:opacity-100 transition-opacity">{value}</div><div className={`rounded-t-md min-h-[8px] ${index % 3 === 1 ? 'bg-accent' : 'bg-primary'}`} style={{ height: `${Math.max(8, value / max * 100)}%` }} /><div className="text-[9px] text-muted-foreground text-center truncate" title={label}>{titleCase(label)}</div></div>; })}</div></div>
@@ -239,7 +239,7 @@ function Customers() {
   const query = useGetCustomers({ search: search || undefined }, { query: { queryKey: getGetCustomersQueryKey({ search: search || undefined }), retry: false } });
   const deactivate = useDeactivateCustomer();
   const client = useQueryClient();
-  const customers = query.data || [];
+  const customers = Array.isArray(query.data) ? query.data : [];
   const deactivateCustomer = (customerId: string) => { if (window.confirm('Deactivate this customer node?')) deactivate.mutate({ customerId }, { onSuccess: () => { setNotice('Customer deactivated'); client.invalidateQueries({ queryKey: getGetCustomersQueryKey({ search: search || undefined }) }); } }); };
   return <div className="page-content"><PageHeader eyebrow="Network / people" title="Customers" description="Search the customer graph, inspect connected orders, and keep identity data clean." action={<button data-testid="button-create-customer" className="button button-primary" onClick={() => setModal('create')}><Plus size={15} /> New customer</button>} /><div className="panel"><div className="p-4 border-b flex flex-col sm:flex-row gap-3 justify-between"><SearchBar value={search} onChange={setSearch} placeholder="Search name, email, phone…" /><span className="text-[10px] font-mono text-muted-foreground self-center">{customers.length} NODES</span></div>{query.isLoading ? <div className="p-4"><State type="loading" /></div> : query.isError ? <div className="p-4"><State type="error" onRetry={() => query.refetch()} /></div> : customers.length === 0 ? <div className="p-4"><State type="empty" /></div> : <div className="table-wrap"><table className="data-table"><thead><tr><th>Customer</th><th>Contact</th><th>Status</th><th>Orders</th><th>Shipments</th><th /></tr></thead><tbody>{customers.map((customer) => <tr key={customer.customerId} data-testid={`row-customer-${customer.customerId}`}><td><Link href={`/customers/${customer.customerId}`} className="font-bold text-primary hover:underline">{customer.name}</Link><div className="font-mono text-[10px] text-muted-foreground mt-1">{customer.customerId}</div></td><td><div>{customer.email}</div><div className="text-muted-foreground text-[10px] mt-1">{customer.phone}</div></td><td><span className={`status ${statusClass(customer.status)}`}>{customer.status}</span></td><td className="font-mono">{customer.orderCount}</td><td className="font-mono">{customer.shipmentCount}</td><td><div className="flex justify-end gap-1"><Link href={`/customers/${customer.customerId}`} data-testid={`link-customer-${customer.customerId}`} className="button button-ghost !px-2">Open</Link><button data-testid={`button-edit-customer-${customer.customerId}`} className="button button-ghost !px-2" onClick={() => setModal(customer)}>Edit</button><button data-testid={`button-deactivate-customer-${customer.customerId}`} className="button button-ghost !px-2 text-destructive" onClick={() => deactivateCustomer(customer.customerId)}>Deactivate</button></div></td></tr>)}</tbody></table></div>}</div>{modal && <CustomerModal customer={modal === 'create' ? undefined : modal} onClose={() => { setModal(null); client.invalidateQueries({ queryKey: getGetCustomersQueryKey({ search: search || undefined }) }); }} />}{notice && <button data-testid="button-dismiss-notice" className="toast-note" onClick={() => setNotice('')}>{notice}</button>}</div>;
 }
@@ -319,7 +319,7 @@ function Analytics() {
   if (query.isLoading) return <div className="page-content"><PageHeader eyebrow="Network intelligence" title="Analytics" /><State type="loading" /></div>;
   if (query.isError || !query.data) return <div className="page-content"><PageHeader eyebrow="Network intelligence" title="Analytics" /><State type="error" onRetry={() => query.refetch()} /></div>;
   const data = query.data;
-  return <div className="page-content"><PageHeader eyebrow="Network intelligence" title="Failure analysis" description="Turn graph relationships into operational decisions. Compare the reasons, places, and actors behind every drop." /><div className="grid grid-cols-2 gap-3 mb-5"><MetricCard label="Success rate" value={`${data.successRate.toFixed(1)}%`} detail="Delivered without a return" /><MetricCard label="Return rate" value={`${data.returnRate.toFixed(1)}%`} detail="Closed loop exceptions" tone="red" /></div><div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4"><div className="panel p-5"><div className="eyebrow mb-1">Failure reason</div><h2 className="font-extrabold mb-5">Why attempts fail</h2><BarList items={data.failureByReason as Record<string, unknown>[]} accent="accent" /></div><div className="panel p-5"><div className="eyebrow mb-1">Zone analysis</div><h2 className="font-extrabold mb-5">Where drops cluster</h2><BarList items={data.failureByZone as Record<string, unknown>[]} /></div><div className="panel p-5"><div className="eyebrow mb-1">Agent analysis</div><h2 className="font-extrabold mb-5">Who needs support</h2><BarList items={data.failureByAgent as Record<string, unknown>[]} /></div><div className="panel p-5"><div className="eyebrow mb-1">Payment behavior</div><h2 className="font-extrabold mb-5">Payment vs failure</h2><BarList items={data.failureByPayment as Record<string, unknown>[]} accent="accent" /></div><div className="panel p-5"><div className="eyebrow mb-1">Distance</div><h2 className="font-extrabold mb-5">Distance ranges</h2><BarList items={data.distanceRanges as Record<string, unknown>[]} /></div><div className="panel p-5"><div className="eyebrow mb-1">Attempts per shipment</div><h2 className="font-extrabold mb-5">Operational drag</h2><BarList items={data.attemptsPerShipment as Record<string, unknown>[]} accent="accent" /></div></div></div>;
+  return <div className="page-content"><PageHeader eyebrow="Network intelligence" title="Failure analysis" description="Turn graph relationships into operational decisions. Compare the reasons, places, and actors behind every drop." /><div className="grid grid-cols-2 gap-3 mb-5"><MetricCard label="Success rate" value={`${(data.successRate * 100).toFixed(1)}%`} detail="Delivered without a return" /><MetricCard label="Return rate" value={`${(data.returnRate * 100).toFixed(1)}%`} detail="Closed loop exceptions" tone="red" /></div><div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4"><div className="panel p-5"><div className="eyebrow mb-1">Failure reason</div><h2 className="font-extrabold mb-5">Why attempts fail</h2><BarList items={data.failureByReason as Record<string, unknown>[]} accent="accent" /></div><div className="panel p-5"><div className="eyebrow mb-1">Zone analysis</div><h2 className="font-extrabold mb-5">Where drops cluster</h2><BarList items={data.failureByZone as Record<string, unknown>[]} /></div><div className="panel p-5"><div className="eyebrow mb-1">Agent analysis</div><h2 className="font-extrabold mb-5">Who needs support</h2><BarList items={data.failureByAgent as Record<string, unknown>[]} /></div><div className="panel p-5"><div className="eyebrow mb-1">Payment behavior</div><h2 className="font-extrabold mb-5">Payment vs failure</h2><BarList items={data.failureByPayment as Record<string, unknown>[]} accent="accent" /></div><div className="panel p-5"><div className="eyebrow mb-1">Distance</div><h2 className="font-extrabold mb-5">Distance ranges</h2><BarList items={data.distanceRanges as Record<string, unknown>[]} /></div><div className="panel p-5"><div className="eyebrow mb-1">Attempts per shipment</div><h2 className="font-extrabold mb-5">Operational drag</h2><BarList items={data.attemptsPerShipment as Record<string, unknown>[]} accent="accent" /></div></div></div>;
 }
 
 function Predictions() {
@@ -330,11 +330,105 @@ function Predictions() {
   return <div className="page-content"><PageHeader eyebrow="Network intelligence / model" title="Predictions" description="Run a persisted failure-risk prediction for a shipment, then use the result as a traceable operational signal." /><div className="grid lg:grid-cols-[.75fr_1.25fr] gap-4"><div className="panel p-5 h-fit"><div className="w-10 h-10 rounded-xl bg-accent/20 text-accent-foreground grid place-items-center"><BrainCircuit size={20} /></div><h2 className="font-extrabold mt-5">Score a shipment</h2><p className="text-xs text-muted-foreground mt-2 leading-5">The prediction is written back to the graph with its model version and feature set.</p><label className="block mt-5"><span className="eyebrow block mb-2">Shipment ID</span><input data-testid="input-prediction-shipment" className="field" value={shipmentId} onChange={(event) => setShipmentId(event.target.value)} placeholder="SHP-1048" /></label><button data-testid="button-run-prediction" className="button button-primary w-full mt-3" disabled={create.isPending || !shipmentId} onClick={() => create.mutate({ shipmentId }, { onSuccess: () => { setShipmentId(''); client.invalidateQueries({ queryKey: getGetHighRiskShipmentsQueryKey() }); } })}>{create.isPending ? 'Running model…' : 'Run prediction'}<Play size={14} /></button>{create.data && <div className="mt-5 p-4 rounded-lg bg-primary/5 border border-primary/20"><div className="eyebrow">Latest result</div><div className="text-2xl font-extrabold mt-2">{Math.round(create.data.failureProbability * 100)}%</div><div className={`status ${riskClass(create.data.riskLevel)} mt-2`}>{create.data.riskLevel} risk</div><div className="text-[10px] font-mono text-muted-foreground mt-3">{create.data.modelVersion} · {formatTime(create.data.predictedAt)}</div></div>}</div><div className="panel"><div className="p-5 border-b flex justify-between"><div><div className="eyebrow mb-1">Persisted risk queue</div><h2 className="font-extrabold">High-risk shipments</h2></div><Zap className="text-accent" size={18} /></div>{highRisk.isLoading ? <div className="p-4"><State type="loading" /></div> : highRisk.isError ? <div className="p-4"><State type="error" onRetry={() => highRisk.refetch()} /></div> : !(highRisk.data || []).length ? <div className="p-4"><State type="empty" /></div> : <div className="table-wrap"><table className="data-table"><thead><tr><th>Shipment</th><th>Customer</th><th>Probability</th><th>Risk</th><th>Attention</th></tr></thead><tbody>{(highRisk.data || []).map((shipment) => <tr key={shipment.shipmentId}><td><Link href={`/shipments/${shipment.shipmentId}`} className="font-mono font-bold text-primary hover:underline">{shipment.shipmentId}</Link></td><td>{shipment.customerName}<div className="text-[10px] text-muted-foreground mt-1">{shipment.zone}</div></td><td className="font-mono font-bold">{Math.round(shipment.failureProbability * 100)}%</td><td><span className={`status ${riskClass(shipment.riskLevel)}`}>{shipment.riskLevel}</span></td><td>{shipment.attention}</td></tr>)}</tbody></table></div>}</div></div></div>;
 }
 
-function GraphView({ graph, loading }: { graph?: any; loading?: boolean }) {
-  if (loading) return <div className="graph-stage network-grid p-5"><div className="skeleton h-full w-full opacity-20" /></div>;
+type GraphVisualizationData = {
+  nodes: Array<{ id: string; label: string; type: string; properties?: Record<string, unknown> }>;
+  relationships: Array<{ source: string; target: string; type: string }>;
+};
+
+function GraphView({ graph, loading }: { graph?: GraphVisualizationData; loading?: boolean }) {
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const nodes = graph?.nodes || [];
-  const positions = [{ left: '10%', top: '38%' }, { left: '42%', top: '12%' }, { left: '73%', top: '34%' }, { left: '35%', top: '68%' }, { left: '70%', top: '72%' }];
-  return <div className="graph-stage">{nodes.slice(0, 5).map((node: any, index: number) => <div key={node.id} className={`graph-node ${index === 0 ? 'center' : ''}`} style={positions[index]} title={JSON.stringify(node.properties)}>{node.label || node.type}</div>)}{nodes.slice(1, 5).map((node: any, index: number) => <div key={`line-${node.id}`} className="graph-line" style={{ width: `${index % 2 ? 140 : 190}px`, left: index === 0 ? '27%' : index === 1 ? '52%' : '29%', top: index === 0 ? '43%' : index === 1 ? '42%' : '53%', transform: `rotate(${index % 2 ? -25 : 20}deg)` }} />)}{!nodes.length && <div className="absolute inset-0 grid place-items-center text-xs text-slate-400">No graph edges returned</div>}</div>;
+  const relationships = graph?.relationships || [];
+  const requestedRootId = new URLSearchParams(window.location.search).get('shipment')
+    || window.location.pathname.match(/^\/shipments\/([^/]+)/)?.[1];
+  const rootId = nodes.find((node) => node.id === requestedRootId)?.id || nodes[0]?.id;
+  const layout = useMemo(() => {
+    const adjacency = new Map(nodes.map((node) => [node.id, new Set<string>()]));
+    relationships.forEach(({ source, target }) => {
+      adjacency.get(source)?.add(target);
+      adjacency.get(target)?.add(source);
+    });
+
+    const distances = new Map<string, number>();
+    if (rootId) {
+      distances.set(rootId, 0);
+      const queue = [rootId];
+      for (let cursor = 0; cursor < queue.length; cursor += 1) {
+        const nodeId = queue[cursor];
+        const distance = distances.get(nodeId) || 0;
+        adjacency.get(nodeId)?.forEach((neighborId) => {
+          if (!distances.has(neighborId)) {
+            distances.set(neighborId, distance + 1);
+            queue.push(neighborId);
+          }
+        });
+      }
+    }
+
+    const groups = new Map<number, typeof nodes>();
+    const maxDistance = Math.max(0, ...distances.values());
+    nodes.forEach((node) => {
+      const distance = distances.get(node.id) ?? maxDistance + 1;
+      const group = groups.get(distance) || [];
+      group.push(node);
+      groups.set(distance, group);
+    });
+
+    const nodeRadius = nodes.length > 80 ? 5 : nodes.length > 35 ? 7 : 11;
+    const positionedNodes = [...groups.entries()].flatMap(([distance, group]) => {
+      group.sort((left, right) => left.type.localeCompare(right.type) || left.label.localeCompare(right.label));
+      return group.map((node, index) => {
+        if (distance === 0) return { ...node, x: 500, y: 350, radius: 18 };
+        const radius = Math.min(375, 105 + distance * 90);
+        const angle = -Math.PI / 2 + (index / group.length) * Math.PI * 2;
+        return {
+          ...node,
+          x: 500 + Math.cos(angle) * radius,
+          y: 350 + Math.sin(angle) * radius * 0.78,
+          radius: nodeRadius,
+        };
+      });
+    });
+    const positionById = new Map(positionedNodes.map((node) => [node.id, node]));
+    const edges = relationships.flatMap((relationship, index) => {
+      const source = positionById.get(relationship.source);
+      const target = positionById.get(relationship.target);
+      if (!source || !target) return [];
+      const deltaX = target.x - source.x;
+      const deltaY = target.y - source.y;
+      const distance = Math.hypot(deltaX, deltaY) || 1;
+      const unitX = deltaX / distance;
+      const unitY = deltaY / distance;
+      return [{
+        ...relationship,
+        index,
+        x1: source.x + unitX * source.radius,
+        y1: source.y + unitY * source.radius,
+        x2: target.x - unitX * (target.radius + 7),
+        y2: target.y - unitY * (target.radius + 7),
+      }];
+    });
+    return { nodes: positionedNodes, edges };
+  }, [nodes, relationships, rootId]);
+
+  if (loading) return <div className="graph-stage network-grid p-5"><div className="skeleton h-full w-full opacity-20" /></div>;
+  return <div className="graph-stage">
+    <svg className="graph-canvas" viewBox="0 0 1000 700" role="img" aria-label="Shipment relationship graph">
+      <defs><marker id="graph-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 8 4 0 8z" fill="#70bdb7" /></marker></defs>
+      {layout.edges.map((edge) => <line key={`${edge.source}-${edge.target}-${edge.type}-${edge.index}`} data-testid={`graph-edge-${edge.index}`} data-source={edge.source} data-target={edge.target} x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} stroke="#70bdb7" strokeOpacity="0.48" strokeWidth="1.4" markerEnd="url(#graph-arrow)"><title>{edge.type}: {edge.source} to {edge.target}</title></line>)}
+      {layout.nodes.map((node) => {
+        const isRoot = node.id === rootId;
+        const showLabel = nodes.length <= 35 || isRoot || hoveredNodeId === node.id;
+        const fill = isRoot ? '#f3ad35' : node.type === 'Customer' ? '#70aee6' : node.type === 'Order' ? '#40d4c1' : '#b6c9d8';
+        return <g key={node.id} data-testid={`graph-node-${node.id}`} data-node-id={node.id} onMouseEnter={() => setHoveredNodeId(node.id)} onMouseLeave={() => setHoveredNodeId(null)}>
+          <title>{node.label} · {node.type} · {node.id}</title>
+          <circle cx={node.x} cy={node.y} r={node.radius} fill="#172331" stroke={fill} strokeWidth={isRoot ? 2.5 : 1.5} />
+          {showLabel && <text x={node.x + node.radius + 7} y={node.y + 4} fill={isRoot ? '#f3ad35' : '#d6e4ec'} fontSize={nodes.length <= 35 ? 11 : 10} fontWeight={isRoot ? 700 : 500}>{node.label}</text>}
+        </g>;
+      })}
+    </svg>
+    {!nodes.length && <div className="absolute inset-0 grid place-items-center text-xs text-slate-400">No graph edges returned</div>}
+  </div>;
 }
 
 function GraphExplorer() {

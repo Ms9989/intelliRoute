@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+
+dotenv.config({ path: "C:/Users/Sanjana/Desktop/IntelliRoute/.env" });
+
 import app from "./app";
 import { logger } from "./lib/logger";
 
